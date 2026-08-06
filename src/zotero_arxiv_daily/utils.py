@@ -1,6 +1,7 @@
 import tarfile
 import re
 import glob
+import json
 import smtplib
 from email.header import Header
 from email.mime.text import MIMEText
@@ -87,6 +88,45 @@ def extract_markdown_from_pdf(file_path:str) -> str:
 def glob_match(path:str, pattern:str) -> bool:
     re_pattern = glob.translate(pattern,recursive=True)
     return re.match(re_pattern, path) is not None
+
+def write_review_json(path:str, papers:list, *, status:str, sources:list[str], include_path:str|None, max_paper_num:int):
+    records = []
+    for paper in papers:
+        records.append({
+            "id": paper.url,
+            "source": paper.source,
+            "title": paper.title,
+            "authors": list(paper.authors),
+            "abstract": paper.abstract,
+            "url": paper.url,
+            "pdf_url": paper.pdf_url,
+            "score": None if paper.score is None else float(paper.score),
+            "tldr": paper.tldr,
+            "affiliations": None if paper.affiliations is None else list(paper.affiliations),
+            "review": {
+                "status": "pending",
+                "decision": None,
+                "collection": None,
+                "tags": [f"source:{paper.source}-daily", "review:pending"],
+                "confirmed_at": None,
+            },
+        })
+
+    document = {
+        "schema_version": 1,
+        "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z"),
+        "status": status,
+        "content_scope": ["title", "authors", "abstract", "url", "pdf_url", "score", "tldr", "affiliations"],
+        "sources": list(sources),
+        "zotero": {
+            "include_path": include_path,
+            "max_paper_num": max_paper_num,
+        },
+        "papers": records,
+    }
+    with open(path, "w", encoding="utf-8") as file:
+        json.dump(document, file, ensure_ascii=False, indent=2)
+        file.write("\n")
 
 def send_email(config:DictConfig, html:str):
     sender = config.email.sender

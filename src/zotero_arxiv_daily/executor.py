@@ -1,7 +1,7 @@
 from loguru import logger
 from pyzotero import zotero
 from omegaconf import DictConfig
-from .utils import glob_match
+from .utils import glob_match, write_review_json
 from .retriever import get_retriever_cls
 from .protocol import CorpusPaper
 import random
@@ -61,6 +61,14 @@ class Executor:
         corpus = self.fetch_zotero_corpus()
         corpus = self.filter_corpus(corpus)
         if len(corpus) == 0:
+            write_review_json(
+                "review.json",
+                [],
+                status="empty_corpus",
+                sources=list(self.config.executor.source),
+                include_path=self.config.zotero.include_path,
+                max_paper_num=self.config.executor.max_paper_num,
+            )
             logger.error(f"No zotero papers found. Please check your zotero settings:\n{self.config.zotero}")
             return
         all_papers = []
@@ -83,8 +91,24 @@ class Executor:
                 p.generate_tldr(self.openai_client, self.config.llm)
                 p.generate_affiliations(self.openai_client, self.config.llm)
         elif not self.config.executor.send_empty:
+            write_review_json(
+                "review.json",
+                [],
+                status="no_papers",
+                sources=list(self.config.executor.source),
+                include_path=self.config.zotero.include_path,
+                max_paper_num=self.config.executor.max_paper_num,
+            )
             logger.info("No new papers found. No email will be sent.")
             return
+        write_review_json(
+            "review.json",
+            reranked_papers,
+            status="ready",
+            sources=list(self.config.executor.source),
+            include_path=self.config.zotero.include_path,
+            max_paper_num=self.config.executor.max_paper_num,
+        )
         logger.info("Sending email...")
         email_content = render_email(reranked_papers)
         send_email(self.config, email_content)

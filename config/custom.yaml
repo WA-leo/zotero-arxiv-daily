@@ -1,7 +1,7 @@
 zotero:
   user_id: ${oc.env:ZOTERO_ID}
   api_key: ${oc.env:ZOTERO_KEY}
-  include_path: null
+  include_path: ${oc.env:ZOTERO_INCLUDE_PATH,null}
 
 email:
   sender: ${oc.env:SENDER}
@@ -16,11 +16,13 @@ llm:
     base_url: ${oc.env:OPENAI_API_BASE}
   generation_kwargs:
     model: gpt-4o-mini
+  language: Chinese
 
 source:
   arxiv:
-    category: ["cs.AI","cs.CV","cs.LG","cs.CL"]
+    category: ["cs.NI","cs.AI","cs.LG","cs.CL"]
 
 executor:
   debug: ${oc.env:DEBUG,null}
+  max_paper_num: 10
   source: ['arxiv']

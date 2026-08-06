@@ -16,4 +16,5 @@ logs
 models
 test-compose.yml
 outputs
+review.json
 config/private.yaml
