@@ -210,7 +210,14 @@ def send_email(config:DictConfig, html:str):
             with smtp_class(smtp_server, smtp_port, timeout=30) as server:
                 if smtp_port != 465:
                     server.starttls()
-                server.login(sender, password)
+                server.ehlo_or_helo_if_needed()
+                auth_methods = server.esmtp_features.get("auth", "").upper().split()
+                if smtp_server.lower().endswith("qq.com") and "LOGIN" in auth_methods:
+                    server.user = sender
+                    server.password = password
+                    server.auth("LOGIN", server.auth_login, initial_response_ok=True)
+                else:
+                    server.login(sender, password)
                 server.sendmail(sender, [receiver], msg.as_string())
             return
         except smtplib.SMTPAuthenticationError:

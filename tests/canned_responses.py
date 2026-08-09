@@ -141,6 +141,8 @@ def make_stub_smtp(sent_emails: list):
     """
 
     class StubSMTP:
+        esmtp_features = {"auth": "PLAIN LOGIN"}
+
         def __init__(self, *args, **kwargs):
             pass
 
@@ -151,6 +153,9 @@ def make_stub_smtp(sent_emails: list):
             self.quit()
 
         def starttls(self):
+            pass
+
+        def ehlo_or_helo_if_needed(self):
             pass
 
         def login(self, user, password):

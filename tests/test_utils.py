@@ -147,6 +147,29 @@ def test_send_email_uses_ssl_on_port_465(config, monkeypatch):
     assert len(sent) == 1
 
 
+def test_send_email_uses_auth_login_for_qq(config, monkeypatch):
+    sent = []
+    auth_methods = []
+    config.email.smtp_server = "smtp.qq.com"
+    config.email.smtp_port = 465
+    StubSMTP = make_stub_smtp(sent)
+
+    class QQSMTP(StubSMTP):
+        def auth_login(self, challenge=None):
+            return "encoded response"
+
+        def auth(self, mechanism, authobject, initial_response_ok=True):
+            auth_methods.append(mechanism)
+
+        def login(self, user, password):
+            raise AssertionError("QQ SMTP must not try AUTH PLAIN first")
+
+    monkeypatch.setattr(smtplib, "SMTP_SSL", QQSMTP)
+    send_email(config, "<html>qq</html>")
+    assert auth_methods == ["LOGIN"]
+    assert len(sent) == 1
+
+
 def test_send_email_retries_transient_disconnect(config, monkeypatch):
     sent = []
     attempts = {"count": 0}
@@ -170,6 +193,7 @@ def test_send_email_retries_transient_disconnect(config, monkeypatch):
 
 def test_send_email_does_not_retry_authentication_error(config, monkeypatch):
     attempts = {"count": 0}
+    config.email.smtp_server = "smtp.qq.com"
     config.email.smtp_port = 465
     StubSMTP = make_stub_smtp([])
 
@@ -177,7 +201,10 @@ def test_send_email_does_not_retry_authentication_error(config, monkeypatch):
         def __init__(self, *args, **kwargs):
             attempts["count"] += 1
 
-        def login(self, user, password):
+        def auth_login(self, challenge=None):
+            return "encoded response"
+
+        def auth(self, mechanism, authobject, initial_response_ok=True):
             raise smtplib.SMTPAuthenticationError(535, b"bad credentials")
 
     monkeypatch.setattr(smtplib, "SMTP_SSL", RejectingSMTP)
