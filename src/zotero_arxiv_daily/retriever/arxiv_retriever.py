@@ -19,6 +19,7 @@ T = TypeVar("T")
 DOWNLOAD_TIMEOUT = (10, 60)
 PDF_EXTRACT_TIMEOUT = 180
 TAR_EXTRACT_TIMEOUT = 180
+DEBUG_PAPER_NUM = 5
 
 
 def _download_file(url: str, path: str) -> None:
@@ -115,6 +116,17 @@ class ArxivRetriever(BaseRetriever):
 
     def _retrieve_raw_papers(self) -> list[ArxivResult]:
         client = arxiv.Client(num_retries=10, delay_seconds=10)
+        if self.config.executor.debug:
+            query = " OR ".join(f"cat:{category}" for category in self.config.source.arxiv.category)
+            search = arxiv.Search(
+                query=query,
+                max_results=DEBUG_PAPER_NUM,
+                sort_by=arxiv.SortCriterion.SubmittedDate,
+                sort_order=arxiv.SortOrder.Descending,
+            )
+            logger.info(f"Debug mode: retrieving the latest {DEBUG_PAPER_NUM} arXiv papers")
+            return list(client.results(search))
+
         query = '+'.join(self.config.source.arxiv.category)
         include_cross_list = self.config.source.arxiv.get("include_cross_list", False)
         # Get the latest paper from arxiv rss feed
@@ -128,9 +140,6 @@ class ArxivRetriever(BaseRetriever):
             for i in feed.entries
             if i.get("arxiv_announce_type", "new") in allowed_announce_types
         ]
-        if self.config.executor.debug:
-            all_paper_ids = all_paper_ids[:10]
-
         # Get full information of each paper from arxiv api
         bar = tqdm(total=len(all_paper_ids))
         max_batch_retries = 5

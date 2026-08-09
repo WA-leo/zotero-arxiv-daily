@@ -5,6 +5,7 @@ import time
 from types import SimpleNamespace
 
 import feedparser
+import pytest
 
 from zotero_arxiv_daily.retriever.arxiv_retriever import ArxivRetriever, _run_with_hard_timeout
 import zotero_arxiv_daily.retriever.arxiv_retriever as arxiv_retriever
@@ -65,6 +66,34 @@ def test_arxiv_retriever(config, mock_feedparser, monkeypatch):
 
     assert len(papers) == len(new_entries)
     assert set(p.title for p in papers) == set(e.title for e in new_entries)
+
+
+def test_debug_mode_retrieves_latest_five_without_daily_rss(config, monkeypatch):
+    config.executor.debug = True
+    papers = [SimpleNamespace(title=f"Paper {index}") for index in range(5)]
+    searches = []
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            pass
+
+        def results(self, search):
+            searches.append(search)
+            return iter(papers)
+
+    monkeypatch.setattr(arxiv_retriever.arxiv, "Client", FakeClient)
+    monkeypatch.setattr(
+        arxiv_retriever.feedparser,
+        "parse",
+        lambda *args, **kwargs: pytest.fail("debug mode must not depend on the daily RSS feed"),
+    )
+
+    result = ArxivRetriever(config)._retrieve_raw_papers()
+
+    assert result == papers
+    assert searches[0].max_results == 5
+    assert searches[0].sort_by == arxiv_retriever.arxiv.SortCriterion.SubmittedDate
+    assert "cat:cs.AI" in searches[0].query
 
 
 def test_run_with_hard_timeout_returns_value():
