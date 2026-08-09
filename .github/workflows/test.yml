@@ -34,6 +34,7 @@ jobs:
             "source.arxiv.category=[$ARXIV_CATEGORIES]"
             "llm.language=$TLDR_LANGUAGE"
             "executor.max_paper_num=$REVIEW_MAX_PAPER_NUM"
+            "executor.send_empty=true"
           )
           if [ -n "$ZOTERO_INCLUDE_PATH" ]; then
             run_args+=("zotero.include_path=$ZOTERO_INCLUDE_PATH")
