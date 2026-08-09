@@ -71,11 +71,12 @@ def test_arxiv_retriever(config, mock_feedparser, monkeypatch):
 def test_debug_mode_retrieves_latest_five_without_daily_rss(config, monkeypatch):
     config.executor.debug = True
     papers = [SimpleNamespace(title=f"Paper {index}") for index in range(5)]
+    client_kwargs = []
     searches = []
 
     class FakeClient:
         def __init__(self, **kwargs):
-            pass
+            client_kwargs.append(kwargs)
 
         def results(self, search):
             searches.append(search)
@@ -91,6 +92,7 @@ def test_debug_mode_retrieves_latest_five_without_daily_rss(config, monkeypatch)
     result = ArxivRetriever(config)._retrieve_raw_papers()
 
     assert result == papers
+    assert client_kwargs == [{"page_size": 5, "num_retries": 3, "delay_seconds": 10}]
     assert searches[0].max_results == 5
     assert searches[0].sort_by == arxiv_retriever.arxiv.SortCriterion.SubmittedDate
     assert "cat:cs.AI" in searches[0].query

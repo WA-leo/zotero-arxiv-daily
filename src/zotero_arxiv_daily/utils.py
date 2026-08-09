@@ -188,6 +188,19 @@ def write_review_json(
         json.dump(document, file, ensure_ascii=False, indent=2)
         file.write("\n")
 
+
+def mark_review_json_failed(path: str, exc: Exception):
+    with open(path, encoding="utf-8") as file:
+        document = json.load(file)
+    document["status"] = "failed"
+    document["error"] = {
+        "type": type(exc).__name__,
+        "message": str(exc),
+    }
+    with open(path, "w", encoding="utf-8") as file:
+        json.dump(document, file, ensure_ascii=False, indent=2)
+        file.write("\n")
+
 def send_email(config:DictConfig, html:str):
     sender = config.email.sender
     receiver = config.email.receiver

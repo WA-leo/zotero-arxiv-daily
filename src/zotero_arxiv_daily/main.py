@@ -6,6 +6,7 @@ import hydra
 from loguru import logger
 import dotenv
 from zotero_arxiv_daily.executor import Executor
+from zotero_arxiv_daily.utils import mark_review_json_failed, write_review_json
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 dotenv.load_dotenv()
 
@@ -27,9 +28,21 @@ def main(config:DictConfig):
 
     if config.executor.debug:
         logger.info("Debug mode is enabled")
-    
-    executor = Executor(config)
-    executor.run()
+
+    write_review_json(
+        "review.json",
+        [],
+        status="started",
+        sources=list(config.executor.source),
+        include_path=config.zotero.include_path,
+        max_paper_num=config.executor.max_paper_num,
+    )
+    try:
+        executor = Executor(config)
+        executor.run()
+    except Exception as exc:
+        mark_review_json_failed("review.json", exc)
+        raise
 
 if __name__ == '__main__':
     main()

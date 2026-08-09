@@ -1,7 +1,7 @@
 import json
 
 from zotero_arxiv_daily.protocol import Paper
-from zotero_arxiv_daily.utils import write_review_json
+from zotero_arxiv_daily.utils import mark_review_json_failed, write_review_json
 
 
 def test_write_review_json(tmp_path):
@@ -34,3 +34,12 @@ def test_write_review_json(tmp_path):
     assert document["papers"][0]["id"] == paper.url
     assert document["papers"][0]["review"]["status"] == "pending"
     assert "review:pending" in document["papers"][0]["review"]["tags"]
+
+    mark_review_json_failed(str(output), RuntimeError("delivery failed"))
+    failed_document = json.loads(output.read_text(encoding="utf-8"))
+    assert failed_document["status"] == "failed"
+    assert failed_document["error"] == {
+        "type": "RuntimeError",
+        "message": "delivery failed",
+    }
+    assert failed_document["papers"][0]["id"] == paper.url

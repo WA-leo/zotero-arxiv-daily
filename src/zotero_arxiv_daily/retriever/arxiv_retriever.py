@@ -115,8 +115,12 @@ class ArxivRetriever(BaseRetriever):
             raise ValueError("category must be specified for arxiv.")
 
     def _retrieve_raw_papers(self) -> list[ArxivResult]:
-        client = arxiv.Client(num_retries=10, delay_seconds=10)
         if self.config.executor.debug:
+            client = arxiv.Client(
+                page_size=DEBUG_PAPER_NUM,
+                num_retries=3,
+                delay_seconds=10,
+            )
             query = " OR ".join(f"cat:{category}" for category in self.config.source.arxiv.category)
             search = arxiv.Search(
                 query=query,
@@ -127,6 +131,7 @@ class ArxivRetriever(BaseRetriever):
             logger.info(f"Debug mode: retrieving the latest {DEBUG_PAPER_NUM} arXiv papers")
             return list(client.results(search))
 
+        client = arxiv.Client(num_retries=10, delay_seconds=10)
         query = '+'.join(self.config.source.arxiv.category)
         include_cross_list = self.config.source.arxiv.get("include_cross_list", False)
         # Get the latest paper from arxiv rss feed
