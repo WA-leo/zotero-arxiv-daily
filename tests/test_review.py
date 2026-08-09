@@ -23,14 +23,14 @@ def test_write_review_json(tmp_path):
         [paper],
         status="ready",
         sources=["arxiv"],
-        include_path="01_当前研究语料/**",
+        include_path=["01_当前研究语料/**"],
         max_paper_num=10,
     )
 
     document = json.loads(output.read_text(encoding="utf-8"))
     assert document["schema_version"] == 1
     assert document["status"] == "ready"
-    assert document["zotero"]["include_path"] == "01_当前研究语料/**"
+    assert document["zotero"]["include_path"] == ["01_当前研究语料/**"]
     assert document["papers"][0]["id"] == paper.url
     assert document["papers"][0]["review"]["status"] == "pending"
     assert "review:pending" in document["papers"][0]["review"]["tags"]

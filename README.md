@@ -41,7 +41,7 @@
 - The queue is uploaded as a GitHub Actions artifact while email delivery remains unchanged.
 - Fast deployment via fork this repo and set environment variables in the Github Action Page.
 - Support LLM API for generating TL;DR of papers.
-- Ignore unwanted Zotero papers using glob pattern.
+- Ignore unwanted Zotero papers using a list of glob patterns.
 - Support multiple sources of papers to retrieve:
   - arxiv
   - biorxiv
@@ -78,7 +78,7 @@ Paste the following content into the value of `CUSTOM_CONFIG` variable:
 zotero:
   user_id: ${oc.env:ZOTERO_ID}
   api_key: ${oc.env:ZOTERO_KEY}
-  include_path: ${oc.env:ZOTERO_INCLUDE_PATH,null}
+  include_path: null # Or e.g. ["2026/survey/**", "2026/reading-group/**"]
 
 email:
   sender: ${oc.env:SENDER}
@@ -98,12 +98,14 @@ llm:
 source:
   arxiv:
     category: ["cs.NI","cs.AI","cs.LG","cs.CL"]
+    include_cross_list: false # Set to true to include arXiv cross-list papers in these categories.
 
 executor:
   debug: ${oc.env:DEBUG,null}
   max_paper_num: 10
   source: ['arxiv']
 ```
+Set `source.arxiv.include_cross_list: true` if you want cross-listed papers included.
 >[!NOTE]
 > `${oc.env:XXX,yyy}` means the value of the environment variable `XXX`. If the variable is not set, the default value `yyy` will be used.
 
@@ -111,7 +113,7 @@ The workflow also accepts these public repository variables. They are applied as
 
 | Variable | Purpose | Recommended value |
 | :--- | :--- | :--- |
-| `ZOTERO_INCLUDE_PATH` | Restrict the recommendation corpus to the reviewed Zotero hierarchy. Leave empty until the hierarchy exists. | `01_当前研究语料/**` |
+| `ZOTERO_INCLUDE_PATH` | Restrict the recommendation corpus to the reviewed Zotero hierarchy. Use an OmegaConf list literal; leave empty until the hierarchy exists. | `["01_当前研究语料/**"]` |
 | `ARXIV_CATEGORIES` | arXiv categories used for the daily feed. | `cs.NI,cs.AI,cs.LG,cs.CL` |
 | `TLDR_LANGUAGE` | Language of the generated TL;DR. | `Chinese` |
 | `REVIEW_MAX_PAPER_NUM` | Maximum number of daily candidates. | `10` |
@@ -121,11 +123,12 @@ Here is the full configuration, `???` means the value must be filled in:
 zotero:
   user_id: ??? # User ID of your Zotero account.
   api_key: ??? # An Zotero API key with read access.
-  include_path: null # Set ZOTERO_INCLUDE_PATH to "01_当前研究语料/**" after creating the reviewed collection hierarchy.
+  include_path: null # A list of glob patterns marking the Zotero collections that should be included. Example: ["2026/survey/**", "2026/reading-group/**"]
 
 source:
   arxiv:
-    category: null # The categories of target arxiv papers. Find the abbr of your research area from [here](https://arxiv.org/category_taxonomy).
+    category: null # The categories of target arxiv papers. Find the abbr of your research area from [here](https://arxiv.org/category_taxonomy). Example: ["cs.AI","cs.CV","cs.LG","cs.CL"]
+    include_cross_list: false # Whether to include arXiv cross-list papers in subscribed categories. Example: true
   biorxiv:
     category: null # The categories of target biorxiv papers. Find categories from [here](https://www.biorxiv.org/). Example: ["biochemistry","animal behavior and cognition"]
   medrxiv:
@@ -159,11 +162,11 @@ reranker:
     key: null # API Key of your embedding model API. Example: sk-xxx
     base_url: null # API URL of your embedding model API. Example: https://api.openai.com/v1
     model: null # The model name of the embedding model. Example: text-embedding-3-large
+    batch_size: null # The batch size for embedding API requests. Adjust to match your provider's limit. Example: 64
 
 executor:
   debug: false # Whether to use debug mode. Example: true
   send_empty: false # Whether to send an empty email even if no new papers today. Example: true
-  max_workers: 10 # Concurrent workers for processing papers. Example: 10
   max_paper_num: 10 # Keep the daily human-review queue small.
   source: ??? # The sources of papers to retrieve. Example: ['arxiv','biorxiv','medrxiv']
   reranker: local # The reranker to use. Example: 'local' or 'api'
@@ -202,14 +205,12 @@ This project is in active development. You can subscribe this repo via `Watch` s
 
 Every run writes `review.json` at the repository root. It contains the candidate title, authors, abstract, canonical URL, PDF URL, relevance score, TL;DR, affiliations, and a `review` object initialized as `pending`. Full extracted PDF text is intentionally not copied into the queue; the PDF link remains available for follow-up reading.
 
-The main and test workflows upload this file as a GitHub Actions artifact. The artifact is a proposal queue only: this project does not import, move, delete, or modify Zotero items. After a collection hierarchy such as `01_当前研究语料/**` has been created and reviewed, set `ZOTERO_INCLUDE_PATH` to that path so archived, unclassified, and pending collections do not influence the daily feed.
+The main and test workflows upload this file as a GitHub Actions artifact. The artifact is a proposal queue only: this project does not import, move, delete, or modify Zotero items. After a collection hierarchy such as `01_当前研究语料/**` has been created and reviewed, set `ZOTERO_INCLUDE_PATH` to a list literal such as `["01_当前研究语料/**"]` so archived, unclassified, and pending collections do not influence the daily feed.
 
 ## 📌 Limitations
 - The recommendation algorithm is very simple, it may not accurately reflect your interest. Welcome better ideas for improving the algorithm!
 - High `MAX_PAPER_NUM` can lead the execution time exceed the limitation of Github Action runner (6h per execution for public repo, and 2000 mins per month for private repo). Commonly, the quota given to public repo is definitely enough for individual use. If you have special requirements, you can deploy the workflow in your own server, or use a self-hosted Github Action runner, or pay for the exceeded execution time.
 
-## 👯‍♂️ Contribution
-Any issue and PR are welcomed! But remember that **each PR should merge to the `dev` branch**.
 
 ## 📃 License
 Distributed under the AGPLv3 License. See `LICENSE` for detail.

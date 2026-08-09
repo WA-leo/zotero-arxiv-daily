@@ -10,9 +10,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          repository: ${{ vars.REPOSITORY }}
-          ref: ${{ vars.REF }}
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v7
@@ -30,6 +27,7 @@ jobs:
           SENDER_PASSWORD: ${{ secrets.SENDER_PASSWORD }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_API_BASE: ${{ secrets.OPENAI_API_BASE }}
+          LLM_MODEL: ${{ secrets.MODEL_NAME }}
           CUSTOM_CONFIG: ${{ vars.CUSTOM_CONFIG }}
         run: |
           printf "%b\n" "$CUSTOM_CONFIG" > config/custom.yaml
@@ -39,7 +37,10 @@ jobs:
             "executor.max_paper_num=$REVIEW_MAX_PAPER_NUM"
           )
           if [ -n "$ZOTERO_INCLUDE_PATH" ]; then
-            run_args+=("zotero.include_path='$ZOTERO_INCLUDE_PATH'")
+            run_args+=("zotero.include_path=$ZOTERO_INCLUDE_PATH")
+          fi
+          if [ -n "$LLM_MODEL" ]; then
+            run_args+=("llm.generation_kwargs.model=$LLM_MODEL")
           fi
           uv run src/zotero_arxiv_daily/main.py "${run_args[@]}"
 
@@ -49,5 +50,5 @@ jobs:
         with:
           name: zotero-arxiv-daily-review-${{ github.run_id }}
           path: review.json
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 30
