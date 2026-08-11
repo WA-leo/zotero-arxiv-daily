@@ -281,3 +281,39 @@ def test_run_no_papers_send_empty_true(config, monkeypatch):
     assert len(sent) == 1, "Email should be sent even with no papers when send_empty=true"
     _, _, body = sent[0]
     assert "text/html" in body
+
+
+def test_run_email_auth_failure_does_not_crash(config, monkeypatch):
+    """Email authentication failures should not fail the whole run."""
+    import smtplib
+
+    from omegaconf import open_dict
+
+    from tests.canned_responses import make_stub_openai_client, make_stub_zotero_client
+
+    with open_dict(config):
+        config.executor.source = ["arxiv"]
+        config.executor.reranker = "api"
+        config.executor.send_empty = True
+
+    stub_zot = make_stub_zotero_client()
+    monkeypatch.setattr("zotero_arxiv_daily.executor.zotero.Zotero", lambda *a, **kw: stub_zot)
+
+    stub_client = make_stub_openai_client()
+    monkeypatch.setattr("zotero_arxiv_daily.executor.OpenAI", lambda **kw: stub_client)
+    monkeypatch.setattr("zotero_arxiv_daily.reranker.api.OpenAI", lambda **kw: stub_client)
+
+    import zotero_arxiv_daily.retriever.arxiv_retriever  # noqa: F401
+
+    from zotero_arxiv_daily.retriever.base import registered_retrievers
+
+    monkeypatch.setattr(registered_retrievers["arxiv"], "retrieve_papers", lambda self: [])
+
+    def _raise_auth_error(*args, **kwargs):
+        raise smtplib.SMTPAuthenticationError(535, b"bad credentials")
+
+    monkeypatch.setattr("zotero_arxiv_daily.executor.send_email", _raise_auth_error)
+    monkeypatch.setattr("zotero_arxiv_daily.retriever.base.sleep", lambda _: None)
+
+    executor = Executor(config)
+    executor.run()

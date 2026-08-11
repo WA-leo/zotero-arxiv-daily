@@ -5,6 +5,7 @@ from .utils import glob_match, write_review_json
 from .retriever import get_retriever_cls
 from .protocol import CorpusPaper
 import random
+import smtplib
 from datetime import datetime
 from .reranker import get_reranker_cls
 from .construct_email import render_email
@@ -144,5 +145,8 @@ class Executor:
         )
         logger.info("Sending email...")
         email_content = render_email(reranked_papers)
-        send_email(self.config, email_content)
-        logger.info("Email sent successfully")
+        try:
+            send_email(self.config, email_content)
+            logger.info("Email sent successfully")
+        except (smtplib.SMTPException, OSError) as exc:
+            logger.warning(f"Failed to send email: {exc}")
