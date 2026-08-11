@@ -11,6 +11,7 @@ from .construct_email import render_email
 from .utils import send_email
 from openai import OpenAI
 from tqdm import tqdm
+import smtplib
 
 
 def normalize_path_patterns(patterns: list[str] | ListConfig | None, config_key: str) -> list[str] | None:
@@ -144,5 +145,8 @@ class Executor:
         )
         logger.info("Sending email...")
         email_content = render_email(reranked_papers)
-        send_email(self.config, email_content)
-        logger.info("Email sent successfully")
+        try:
+            send_email(self.config, email_content)
+            logger.info("Email sent successfully")
+        except smtplib.SMTPException as exc:
+            logger.warning(f"Failed to send email: {exc}")

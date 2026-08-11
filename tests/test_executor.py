@@ -281,3 +281,59 @@ def test_run_no_papers_send_empty_true(config, monkeypatch):
     assert len(sent) == 1, "Email should be sent even with no papers when send_empty=true"
     _, _, body = sent[0]
     assert "text/html" in body
+
+
+def test_run_ignores_smtp_authentication_error(config, monkeypatch):
+    """SMTP auth failures should not fail the whole pipeline."""
+    import smtplib
+
+    from omegaconf import open_dict
+
+    from tests.canned_responses import make_stub_openai_client, make_stub_zotero_client
+
+    with open_dict(config):
+        config.executor.source = ["arxiv"]
+        config.executor.reranker = "api"
+        config.executor.send_empty = True
+        config.email.smtp_port = 465
+        config.email.smtp_server = "smtp.qq.com"
+
+    stub_zot = make_stub_zotero_client()
+    monkeypatch.setattr("zotero_arxiv_daily.executor.zotero.Zotero", lambda *a, **kw: stub_zot)
+
+    stub_client = make_stub_openai_client()
+    monkeypatch.setattr("zotero_arxiv_daily.executor.OpenAI", lambda **kw: stub_client)
+    monkeypatch.setattr("zotero_arxiv_daily.reranker.api.OpenAI", lambda **kw: stub_client)
+
+    import zotero_arxiv_daily.retriever.arxiv_retriever  # noqa: F401
+
+    from zotero_arxiv_daily.retriever.base import registered_retrievers
+
+    monkeypatch.setattr(registered_retrievers["arxiv"], "retrieve_papers", lambda self: [])
+
+    class RejectingSMTP:
+        esmtp_features = {"auth": "LOGIN"}
+
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            pass
+
+        def ehlo_or_helo_if_needed(self):
+            pass
+
+        def auth_login(self, challenge=None):
+            return "encoded response"
+
+        def auth(self, mechanism, authobject, initial_response_ok=True):
+            raise smtplib.SMTPAuthenticationError(535, b"bad credentials")
+
+    monkeypatch.setattr(smtplib, "SMTP_SSL", RejectingSMTP)
+    monkeypatch.setattr("zotero_arxiv_daily.retriever.base.sleep", lambda _: None)
+
+    executor = Executor(config)
+    executor.run()
