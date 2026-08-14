@@ -189,7 +189,7 @@ def write_review_json(
         file.write("\n")
 
 
-def mark_review_json_failed(path: str, exc: Exception):
+def mark_review_json_failed(path: str, exc: Exception, *, smtp_server: str | None = None):
     with open(path, encoding="utf-8") as file:
         document = json.load(file)
     document["status"] = "failed"
@@ -198,10 +198,7 @@ def mark_review_json_failed(path: str, exc: Exception):
         "message": str(exc),
     }
     if isinstance(exc, smtplib.SMTPAuthenticationError):
-        error["remediation"] = (
-            "QQ SMTP authentication was rejected. Enable SMTP in QQ Mail and replace "
-            "SENDER_PASSWORD with a freshly generated QQ SMTP authorization code."
-        )
+        error["remediation"] = _smtp_auth_remediation(smtp_server)
     document["error"] = error
     with open(path, "w", encoding="utf-8") as file:
         json.dump(document, file, ensure_ascii=False, indent=2)
@@ -223,11 +220,17 @@ def _mailbox(value, config_key: str) -> str:
     return address
 
 
-def _smtp_auth_remediation(smtp_server: str) -> str:
-    if smtp_server.lower().endswith("qq.com"):
+def _smtp_auth_remediation(smtp_server: str | None) -> str:
+    server = (smtp_server or "").lower()
+    if server.endswith("qq.com"):
         return (
             "Enable SMTP in QQ Mail and replace SENDER_PASSWORD with a freshly "
             "generated QQ SMTP authorization code."
+        )
+    if server.endswith("126.com"):
+        return (
+            "Enable SMTP/IMAP in 126 Mail and replace SENDER_PASSWORD with a freshly "
+            "generated 126 Mail client authorization code."
         )
     return "Verify the sender credentials and that SMTP access is enabled."
 

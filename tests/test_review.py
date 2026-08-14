@@ -46,7 +46,7 @@ def test_write_review_json(tmp_path):
     assert failed_document["papers"][0]["id"] == paper.url
 
 
-def test_mark_review_json_failed_adds_safe_qq_auth_remediation(tmp_path):
+def test_mark_review_json_failed_adds_provider_auth_remediation(tmp_path):
     output = tmp_path / "review.json"
     write_review_json(
         str(output),
@@ -57,8 +57,12 @@ def test_mark_review_json_failed_adds_safe_qq_auth_remediation(tmp_path):
         max_paper_num=10,
     )
 
-    mark_review_json_failed(output, smtplib.SMTPAuthenticationError(535, b"Login fail"))
+    mark_review_json_failed(
+        output,
+        smtplib.SMTPAuthenticationError(535, b"Login fail"),
+        smtp_server="smtp.126.com",
+    )
 
     document = json.loads(output.read_text(encoding="utf-8"))
     assert document["error"]["type"] == "SMTPAuthenticationError"
-    assert "QQ SMTP" in document["error"]["remediation"]
+    assert "126 Mail" in document["error"]["remediation"]

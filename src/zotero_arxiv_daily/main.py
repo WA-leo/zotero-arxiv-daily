@@ -41,7 +41,7 @@ def main(config:DictConfig):
         executor = Executor(config)
         executor.run()
     except Exception as exc:
-        mark_review_json_failed("review.json", exc)
+        mark_review_json_failed("review.json", exc, smtp_server=config.email.smtp_server)
         raise
 
 if __name__ == '__main__':

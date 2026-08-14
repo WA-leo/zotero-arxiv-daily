@@ -20,6 +20,8 @@ jobs:
           ARXIV_CATEGORIES: ${{ vars.ARXIV_CATEGORIES || 'cs.NI,cs.AI,cs.LG,cs.CL' }}
           TLDR_LANGUAGE: ${{ vars.TLDR_LANGUAGE || 'Chinese' }}
           REVIEW_MAX_PAPER_NUM: ${{ vars.REVIEW_MAX_PAPER_NUM || '10' }}
+          SMTP_SERVER: ${{ vars.SMTP_SERVER || 'smtp.126.com' }}
+          SMTP_PORT: ${{ vars.SMTP_PORT || '465' }}
           SENDER: ${{ secrets.SENDER }}
           RECEIVER: ${{ secrets.RECEIVER }}
           SENDER_PASSWORD: ${{ secrets.SENDER_PASSWORD }}
@@ -36,6 +38,8 @@ jobs:
             "source.arxiv.category=[$ARXIV_CATEGORIES]"
             "llm.language=$TLDR_LANGUAGE"
             "executor.max_paper_num=$REVIEW_MAX_PAPER_NUM"
+            "email.smtp_server=$SMTP_SERVER"
+            "email.smtp_port=$SMTP_PORT"
             "executor.send_empty=true"
           )
           if [ -n "$ZOTERO_INCLUDE_PATH" ]; then

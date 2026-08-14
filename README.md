@@ -64,8 +64,8 @@ Below are all the secrets you need to set. They are invisible to anyone includin
 | :---  | :---  | :--- |
 | ZOTERO_ID  | User ID of your Zotero account. **User ID is not your username, but a sequence of numbers**Get your ID from [here](https://www.zotero.org/settings/security). You can find it at the position shown in this [screenshot](https://github.com/TideDra/zotero-arxiv-daily/blob/main/assets/userid.png). | 12345678  |
 | ZOTERO_KEY | An Zotero API key with read access. Get a key from [here](https://www.zotero.org/settings/security).  | AB5tZ877P2j7Sm2Mragq041H   |
-| SENDER | The email account of the SMTP server that sends you email. | abc@qq.com |
-| SENDER_PASSWORD | The password of the sender account. Note that it's not necessarily the password for logging in the e-mail client, but the authentication code for SMTP service. Ask your email provider for this.   | abcdefghijklmn |
+| SENDER | The email account of the SMTP server that sends you email. | abc@126.com |
+| SENDER_PASSWORD | The sender's SMTP client authorization code, not the web-mail password. | 16-character client authorization code |
 | RECEIVER | The e-mail address that receives the paper list. | abc@outlook.com |
 | OPENAI_API_KEY | API Key when using the API to access LLMs. You can get FREE API for using advanced open source LLMs in [SiliconFlow](https://cloud.siliconflow.cn/i/b3XhBRAm). | sk-xxx |
 | OPENAI_API_BASE | API URL when using the API to access LLMs. | https://api.siliconflow.cn/v1 |
@@ -83,7 +83,7 @@ zotero:
 email:
   sender: ${oc.env:SENDER}
   receiver: ${oc.env:RECEIVER}
-  smtp_server: smtp.qq.com
+  smtp_server: smtp.126.com
   smtp_port: 465
   sender_password: ${oc.env:SENDER_PASSWORD}
 
@@ -117,6 +117,8 @@ The workflow also accepts these public repository variables. They are applied as
 | `ARXIV_CATEGORIES` | arXiv categories used for the daily feed. | `cs.NI,cs.AI,cs.LG,cs.CL` |
 | `TLDR_LANGUAGE` | Language of the generated TL;DR. | `Chinese` |
 | `REVIEW_MAX_PAPER_NUM` | Maximum number of daily candidates. | `10` |
+| `SMTP_SERVER` | SMTP host for the sender. It is determined by the sender mailbox, not the QQ recipient. | `smtp.126.com` |
+| `SMTP_PORT` | SMTP port for the sender. | `465` |
 
 Here is the full configuration, `???` means the value must be filled in:
 ```yaml

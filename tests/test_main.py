@@ -77,7 +77,7 @@ def test_main_marks_review_failed_when_executor_raises(config, monkeypatch):
     monkeypatch.setattr("zotero_arxiv_daily.main.write_review_json", lambda *args, **kwargs: None)
     monkeypatch.setattr(
         "zotero_arxiv_daily.main.mark_review_json_failed",
-        lambda path, exc: failures.append((path, exc)),
+        lambda path, exc, **kwargs: failures.append((path, exc, kwargs)),
     )
 
     from zotero_arxiv_daily import main as main_mod
@@ -87,3 +87,4 @@ def test_main_marks_review_failed_when_executor_raises(config, monkeypatch):
 
     assert failures[0][0] == "review.json"
     assert isinstance(failures[0][1], RuntimeError)
+    assert failures[0][2] == {"smtp_server": "localhost"}
