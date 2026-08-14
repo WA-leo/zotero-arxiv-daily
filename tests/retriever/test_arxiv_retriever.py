@@ -56,16 +56,42 @@ def test_arxiv_retriever(config, mock_feedparser, monkeypatch):
 
     monkeypatch.setattr(arxiv_retriever.arxiv, "Client", FakeClient)
 
-    # Skip file downloads in convert_to_paper
-    monkeypatch.setattr(arxiv_retriever, "extract_text_from_html", lambda paper: None)
-    monkeypatch.setattr(arxiv_retriever, "extract_text_from_pdf", lambda paper: None)
-    monkeypatch.setattr(arxiv_retriever, "extract_text_from_tar", lambda paper: None)
-
     retriever = ArxivRetriever(config)
     papers = retriever.retrieve_papers()
 
     assert len(papers) == len(new_entries)
     assert set(p.title for p in papers) == set(e.title for e in new_entries)
+    assert all(p.full_text is None for p in papers)
+    assert all(p.source_url and "/e-print/" in p.source_url for p in papers)
+
+
+def test_arxiv_retriever_enriches_only_selected_paper(config, monkeypatch):
+    retriever = ArxivRetriever(config)
+    paper = arxiv_retriever.Paper(
+        source="arxiv",
+        title="Selected paper",
+        authors=["Author"],
+        abstract="Abstract",
+        url="https://arxiv.org/abs/2608.00001",
+        pdf_url="https://arxiv.org/pdf/2608.00001",
+        source_url="https://arxiv.org/e-print/2608.00001",
+    )
+    calls = []
+
+    def _extract_tar(source_url, paper_id, paper_title):
+        calls.append((source_url, paper_id, paper_title))
+        return "source text"
+
+    monkeypatch.setattr(arxiv_retriever, "extract_text_from_tar", _extract_tar)
+    monkeypatch.setattr(
+        arxiv_retriever,
+        "extract_text_from_html",
+        lambda *args: pytest.fail("HTML fallback should not run after source extraction succeeds"),
+    )
+
+    assert retriever.enrich_paper(paper) is paper
+    assert paper.full_text == "source text"
+    assert calls == [(paper.source_url, paper.url, paper.title)]
 
 
 def test_debug_mode_retrieves_latest_five_without_daily_rss(config, monkeypatch):

@@ -16,6 +16,7 @@ class Paper:
     abstract: str
     url: str
     pdf_url: Optional[str] = None
+    source_url: Optional[str] = None
     full_text: Optional[str] = None
     tldr: Optional[str] = None
     affiliations: Optional[list[str]] = None

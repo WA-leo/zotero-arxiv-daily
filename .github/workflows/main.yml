@@ -30,7 +30,9 @@ jobs:
           LLM_MODEL: ${{ secrets.MODEL_NAME }}
           CUSTOM_CONFIG: ${{ vars.CUSTOM_CONFIG }}
         run: |
-          printf "%b\n" "$CUSTOM_CONFIG" > config/custom.yaml
+          if [ -n "$CUSTOM_CONFIG" ]; then
+            printf "%b\n" "$CUSTOM_CONFIG" > config/custom.yaml
+          fi
           run_args=(
             "source.arxiv.category=[$ARXIV_CATEGORIES]"
             "llm.language=$TLDR_LANGUAGE"
@@ -43,6 +45,34 @@ jobs:
             run_args+=("llm.generation_kwargs.model=$LLM_MODEL")
           fi
           uv run src/zotero_arxiv_daily/main.py "${run_args[@]}"
+
+      - name: Summarize review queue outcome
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          summary = Path(os.environ["GITHUB_STEP_SUMMARY"])
+          review_path = Path("review.json")
+          if not review_path.exists():
+              summary.write_text("## Review queue\n\nNo `review.json` was produced.\n", encoding="utf-8")
+          else:
+              review = json.loads(review_path.read_text(encoding="utf-8"))
+              error = review.get("error") or {}
+              lines = [
+                  "## Review queue",
+                  "",
+                  f"- Status: `{review.get('status', 'unknown')}`",
+                  f"- Candidate count: `{len(review.get('papers', []))}`",
+              ]
+              if error.get("type"):
+                  lines.append(f"- Failure type: `{error['type']}`")
+              if error.get("remediation"):
+                  lines.append(f"- Action: {error['remediation']}")
+              summary.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
 
       - name: Upload review queue
         if: always()

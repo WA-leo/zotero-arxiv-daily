@@ -119,8 +119,17 @@ class Executor:
             logger.info("Reranking papers...")
             reranked_papers = self.reranker.rerank(all_papers, corpus)
             reranked_papers = reranked_papers[:self.config.executor.max_paper_num]
-            logger.info("Generating TLDR and affiliations...")
+            write_review_json(
+                "review.json",
+                reranked_papers,
+                status="candidates_ready",
+                sources=list(self.config.executor.source),
+                include_path=self.config.zotero.include_path,
+                max_paper_num=self.config.executor.max_paper_num,
+            )
+            logger.info("Enriching selected papers, then generating TLDR and affiliations...")
             for p in tqdm(reranked_papers):
+                self.retrievers[p.source].enrich_paper(p)
                 p.generate_tldr(self.openai_client, self.config.llm)
                 p.generate_affiliations(self.openai_client, self.config.llm)
         elif not self.config.executor.send_empty:

@@ -193,20 +193,56 @@ def mark_review_json_failed(path: str, exc: Exception):
     with open(path, encoding="utf-8") as file:
         document = json.load(file)
     document["status"] = "failed"
-    document["error"] = {
+    error = {
         "type": type(exc).__name__,
         "message": str(exc),
     }
+    if isinstance(exc, smtplib.SMTPAuthenticationError):
+        error["remediation"] = (
+            "QQ SMTP authentication was rejected. Enable SMTP in QQ Mail and replace "
+            "SENDER_PASSWORD with a freshly generated QQ SMTP authorization code."
+        )
+    document["error"] = error
     with open(path, "w", encoding="utf-8") as file:
         json.dump(document, file, ensure_ascii=False, indent=2)
         file.write("\n")
 
+
+def _required_email_value(value, config_key: str) -> str:
+    text = "" if value is None else str(value).strip()
+    if not text or text == "???":
+        raise ValueError(f"{config_key} must be configured.")
+    return text
+
+
+def _mailbox(value, config_key: str) -> str:
+    text = _required_email_value(value, config_key)
+    address = parseaddr(text)[1] or text
+    if "@" not in address:
+        raise ValueError(f"{config_key} must be an email address.")
+    return address
+
+
+def _smtp_auth_remediation(smtp_server: str) -> str:
+    if smtp_server.lower().endswith("qq.com"):
+        return (
+            "Enable SMTP in QQ Mail and replace SENDER_PASSWORD with a freshly "
+            "generated QQ SMTP authorization code."
+        )
+    return "Verify the sender credentials and that SMTP access is enabled."
+
+
 def send_email(config:DictConfig, html:str):
-    sender = config.email.sender
-    receiver = config.email.receiver
-    password = config.email.sender_password
-    smtp_server = config.email.smtp_server
-    smtp_port = int(config.email.smtp_port)
+    sender = _mailbox(config.email.sender, "email.sender")
+    receiver = _mailbox(config.email.receiver, "email.receiver")
+    password = _required_email_value(config.email.sender_password, "email.sender_password")
+    smtp_server = _required_email_value(config.email.smtp_server, "email.smtp_server")
+    try:
+        smtp_port = int(_required_email_value(config.email.smtp_port, "email.smtp_port"))
+    except ValueError as exc:
+        raise ValueError("email.smtp_port must be an integer.") from exc
+    if smtp_port <= 0:
+        raise ValueError("email.smtp_port must be positive.")
     def _format_addr(s):
         name, addr = parseaddr(s)
         return formataddr((Header(name, 'utf-8').encode(), addr))
@@ -234,6 +270,7 @@ def send_email(config:DictConfig, html:str):
                 server.sendmail(sender, [receiver], msg.as_string())
             return
         except smtplib.SMTPAuthenticationError:
+            logger.error(f"SMTP authentication rejected by {smtp_server}. {_smtp_auth_remediation(smtp_server)}")
             raise
         except (smtplib.SMTPServerDisconnected, smtplib.SMTPConnectError, OSError) as exc:
             if attempt == 3:

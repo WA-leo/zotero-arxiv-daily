@@ -170,6 +170,43 @@ def test_send_email_uses_auth_login_for_qq(config, monkeypatch):
     assert len(sent) == 1
 
 
+def test_send_email_normalizes_qq_mailboxes_and_authorization_code(config, monkeypatch):
+    sent = []
+    credentials = []
+    config.email.smtp_server = "smtp.qq.com"
+    config.email.smtp_port = 465
+    config.email.sender = "GitHub Action <test@example.com>"
+    config.email.receiver = "Researcher <reader@example.com>"
+    config.email.sender_password = "  authorization-code  \n"
+    StubSMTP = make_stub_smtp(sent)
+
+    class QQSMTP(StubSMTP):
+        def auth_login(self, challenge=None):
+            return "encoded response"
+
+        def auth(self, mechanism, authobject, initial_response_ok=True):
+            credentials.append((mechanism, self.user, self.password))
+
+    monkeypatch.setattr(smtplib, "SMTP_SSL", QQSMTP)
+    send_email(config, "<html>qq</html>")
+
+    assert credentials == [("LOGIN", "test@example.com", "authorization-code")]
+    assert sent[0][0] == "test@example.com"
+    assert sent[0][1] == ["reader@example.com"]
+
+
+def test_send_email_rejects_missing_sender_password_before_connecting(config, monkeypatch):
+    config.email.sender_password = "  "
+
+    class UnexpectedSMTP:
+        def __init__(self, *args, **kwargs):
+            raise AssertionError("SMTP connection should not be attempted")
+
+    monkeypatch.setattr(smtplib, "SMTP", UnexpectedSMTP)
+    with pytest.raises(ValueError, match="email.sender_password must be configured"):
+        send_email(config, "<html>auth</html>")
+
+
 def test_send_email_retries_transient_disconnect(config, monkeypatch):
     sent = []
     attempts = {"count": 0}

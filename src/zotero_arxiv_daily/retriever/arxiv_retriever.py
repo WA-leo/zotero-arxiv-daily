@@ -175,11 +175,6 @@ class ArxivRetriever(BaseRetriever):
         authors = [a.name for a in raw_paper.authors]
         abstract = raw_paper.summary
         pdf_url = raw_paper.pdf_url
-        full_text = extract_text_from_tar(raw_paper)
-        if full_text is None:
-            full_text = extract_text_from_html(raw_paper)
-        if full_text is None:
-            full_text = extract_text_from_pdf(raw_paper)
         return Paper(
             source=self.name,
             title=title,
@@ -187,41 +182,49 @@ class ArxivRetriever(BaseRetriever):
             abstract=abstract,
             url=raw_paper.entry_id,
             pdf_url=pdf_url,
-            full_text=full_text,
+            source_url=raw_paper.source_url(),
         )
 
+    def enrich_paper(self, paper: Paper) -> Paper:
+        full_text = extract_text_from_tar(paper.source_url, paper.url, paper.title)
+        if full_text is None:
+            full_text = extract_text_from_html(paper.url, paper.title)
+        if full_text is None:
+            full_text = extract_text_from_pdf(paper.pdf_url, paper.title)
+        paper.full_text = full_text
+        return paper
 
-def extract_text_from_html(paper: ArxivResult) -> str | None:
-    html_url = paper.entry_id.replace("/abs/", "/html/")
+
+def extract_text_from_html(entry_id: str, paper_title: str) -> str | None:
+    html_url = entry_id.replace("/abs/", "/html/")
     try:
         return _extract_text_from_html_worker(html_url)
     except Exception as exc:
-        logger.warning(f"HTML extraction failed for {paper.title}: {exc}")
+        logger.warning(f"HTML extraction failed for {paper_title}: {exc}")
         return None
 
 
-def extract_text_from_pdf(paper: ArxivResult) -> str | None:
-    if paper.pdf_url is None:
-        logger.warning(f"No PDF URL available for {paper.title}")
+def extract_text_from_pdf(pdf_url: str | None, paper_title: str) -> str | None:
+    if pdf_url is None:
+        logger.warning(f"No PDF URL available for {paper_title}")
         return None
     return _run_with_hard_timeout(
         _extract_text_from_pdf_worker,
-        (paper.pdf_url,),
+        (pdf_url,),
         timeout=PDF_EXTRACT_TIMEOUT,
         operation="PDF extraction",
-        paper_title=paper.title,
+        paper_title=paper_title,
     )
 
 
-def extract_text_from_tar(paper: ArxivResult) -> str | None:
-    source_url = paper.source_url()
+def extract_text_from_tar(source_url: str | None, paper_id: str, paper_title: str) -> str | None:
     if source_url is None:
-        logger.warning(f"No source URL available for {paper.title}")
+        logger.warning(f"No source URL available for {paper_title}")
         return None
     return _run_with_hard_timeout(
         _extract_text_from_tar_worker,
-        (source_url, paper.entry_id, paper.title),
+        (source_url, paper_id, paper_title),
         timeout=TAR_EXTRACT_TIMEOUT,
         operation="Tar extraction",
-        paper_title=paper.title,
+        paper_title=paper_title,
     )
